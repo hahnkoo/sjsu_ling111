@@ -10,6 +10,8 @@ import hmm, trellis, baum_welch, viterbi_train, dumb_train, ling111_extract_word
 
 def extract_features(x, fs, frame_shift, frame_size):
 	"""Extract acoustic features for each frame: 13 MFCCs, 13 deltas, 13 delta-deltas."""
+	wl = int(fs*frame_size); hl = int(fs*frame_shift)
+	if len(x) < wl: x = np.pad(x, (0, wl-len(x))) # pad if x is too short 
 	c = librosa.feature.mfcc(y=x, sr=fs, n_mfcc=13, n_fft=int(fs*frame_size), hop_length=int(fs*frame_shift), center=False)
 	d = librosa.feature.delta(c, width=3, order=1, mode='constant')
 	d2 = librosa.feature.delta(c, width=3, order=2, mode='constant')
@@ -104,8 +106,11 @@ def main(wav_file, textgrid_file, output_file, frame_shift=0.01, frame_size=0.02
 	xs = []; ys = []
 	stamps = sorted(words)
 	for (si, ei) in stamps:
-		x = ['<s>'] + list(extract_features(wav[si:ei], fs, frame_shift, frame_size)) + ['</s>']
-		y = ['sos'] + words[(si, ei)]['phones'] + ['eos']
+		xf = list(extract_features(wav[si:ei], fs, frame_shift, frame_size)) 
+		yf = words[(si, ei)]['phones']
+		if len(yf) > len(xf): yf = yf[:len(xf)] # cut state sequence if longer than output sequence
+		x = ['<s>'] + xf + ['</s>']
+		y = ['sos'] + yf + ['eos']
 		xs.append(x)
 		ys.append(y)
 	alphabet = set([p for y in ys for p in y]); alphabet -= set(['sos', 'eos'])
